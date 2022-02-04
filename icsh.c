@@ -1,12 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h> 
+#include <unistd.h>
 
-int decider(char inputArrayD[], char previousInput[], int previousCase, int lengthInput, int previousInputLength)
+int decider(char inputArrayD[], char previousInput[], int previousCase, int lengthInput, int previousInputLength, int fileRead, char previousRunFile[])
 {
 	int i;
 	int num = 0;
+
+	char* stringNum = (char*)malloc(995*sizeof(char));
 	char* charNum = (char*)malloc(995*sizeof(char));
+
+	FILE* previousFile;
 
 	if(!strncmp(inputArrayD, "echo", 4))
 	{
@@ -14,7 +19,7 @@ int decider(char inputArrayD[], char previousInput[], int previousCase, int leng
 	}
 	else if(!strncmp(inputArrayD, "!!", 2))
 	{
-		if(previousInputLength > 0)
+		if(previousInputLength > 0 && fileRead == 1)
 		{
 			printf("%s\n", previousInput);
 		}
@@ -29,6 +34,23 @@ int decider(char inputArrayD[], char previousInput[], int previousCase, int leng
 			charNum[i-5] = inputArrayD[i];
 		}
 		
+		if(fileRead == 2)
+                {
+                        if(access(previousRunFile, F_OK) == 0)
+                        {
+                                int previousExitNum;
+
+                                FILE* readFile;
+                                readFile = fopen(previousRunFile, "r");
+
+                                fscanf(readFile, "%d", &previousExitNum);
+
+				if(previousExitNum > 1 )
+				{
+					printf("%d\n", previousExitNum);
+				}
+                        }
+                }
 
 		num = atoi(charNum) % 256;
 
@@ -42,7 +64,24 @@ int decider(char inputArrayD[], char previousInput[], int previousCase, int leng
 			printf("%d\n", num);
 		}
 
-		printf("Closing\n");
+		if(fileRead == 1)
+		{
+			printf("Closing\n");
+		}
+
+		previousFile = fopen(previousRunFile, "w");
+
+		if(previousFile == NULL)
+		{
+			printf("File not created (BUG)\n");
+		}
+
+		sprintf(stringNum, "%d", num);
+
+		fputs(stringNum, previousFile);
+
+		fclose(previousFile);
+
 		printf("$\n");
 		return 3;
 	}
@@ -72,29 +111,80 @@ void echo(char inputArray[], int lengthInput)
 		
 }
 
-int main()
+int main(int argc, char *argv[])
 {
 	char* previousCommand = (char*)malloc(1000*sizeof(char));
+	char line;
 
 	int trueValue = 1;
 	int previousCommandCase = 0;
 	int previousLength = 0;
+	int countLine = 0;
 	int decide, i, j;
 
-	printf("IC shell is starting\n");
+	FILE* fileRead;
+
+	if(argc == 2)
+	{
+
+		fileRead = fopen(argv[1], "r");
+
+		while(!feof(fileRead))
+		{
+			line = fgetc(fileRead);
+			if(line == '\n')
+			{
+				countLine++;
+			}
+		}
+
+		fclose(fileRead);
+
+		fileRead = fopen(argv[1], "r");
+	}
+	else
+	{
+		printf("IC shell is starting\n");
+	}
 
 	while(trueValue)
 	{
+
 		char* input = (char*)malloc(1000*sizeof(char));
 
 		int lengthInput = 0;
 
-		printf("icsh $ ");
+		if(argc == 1)
+		{
+			printf("icsh $ ");
 
-		scanf("%[^\n]%n", input, &lengthInput);
-		while(getchar() != '\n');
+			scanf("%[^\n]%n", input, &lengthInput);
+			while(getchar() != '\n');
+		}
+		else if(argc == 2)
+		{
+			fgets(input, 1000, fileRead);
 
-		decide = decider(input, previousCommand, previousCommandCase, lengthInput, previousLength);
+			lengthInput = strlen(input);
+			
+			if(input[lengthInput - 1] == '\n')
+			{
+				input[lengthInput - 1] = 0;
+			}
+			
+			countLine--;
+
+			if(countLine <= 0)
+			{
+				trueValue = 0;
+			}
+		}
+		else
+		{
+			printf("This program only accept one file Maximum\n");
+		}
+
+		decide = decider(input, previousCommand, previousCommandCase, lengthInput, previousLength, argc, "previousRunFile.txt");
 
 		if(!strncmp(input, "!!", 2))
 		{
@@ -145,6 +235,10 @@ int main()
 		}
 
 		free(input);
+	}
+	if(argc == 2)
+	{
+		fclose(fileRead);
 	}
 
 	free(previousCommand);
