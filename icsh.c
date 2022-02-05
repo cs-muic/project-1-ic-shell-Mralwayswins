@@ -8,9 +8,14 @@ int decider(char inputArrayD[], char previousInput[], int previousCase, int leng
 	int i;
 	int num = 0;
 
-	char* stringNum = (char*)malloc(995*sizeof(char));
-	char* charNum = (char*)malloc(995*sizeof(char));
+	char* stringNum;
+	char* charNum;
+	char* systemCall = (char*)malloc(995*sizeof(char));
+
 	FILE* previousFile;
+
+	strcat(systemCall, inputArrayD);
+	strcat(systemCall, " 2>/dev/null");
 
 	if(!strncmp(inputArrayD, "echo", 4))
 	{
@@ -27,6 +32,8 @@ int decider(char inputArrayD[], char previousInput[], int previousCase, int leng
 	}
 	else if(!strncmp(inputArrayD, "exit", 4))
 	{
+		charNum = (char*)malloc(995*sizeof(char));
+		stringNum = (char*)malloc(995*sizeof(char));
 
 		for(i = 5; i < lengthInput; i++)
 		{
@@ -81,16 +88,25 @@ int decider(char inputArrayD[], char previousInput[], int previousCase, int leng
 
 		fclose(previousFile);
 
+		free(charNum);
+		free(stringNum);
+
 		printf("$\n");
 		return 3;
 	}
-	else if(!system(inputArrayD)){}
+	else if(!system(systemCall))
+	{
+		free(systemCall);
+		return 0;
+	}
 	else if(lengthInput <= 0)
 	{
+		free(systemCall);
 		return 0;
 	}
 	else
 	{
+		free(systemCall);
 		return -1;
 	}
 
@@ -108,7 +124,8 @@ void echo(char inputArray[], int lengthInput)
 	}
 
 	printf("%s\n", printArray);
-		
+
+	free(printArray);
 }
 
 int main(int argc, char *argv[])
