@@ -85,6 +85,7 @@ int decider(char inputArrayD[], char previousInput[], int previousCase, int leng
 		printf("$\n");
 		return 3;
 	}
+	else if(!system(inputArrayD)){}
 	else if(lengthInput <= 0)
 	{
 		return 0;
