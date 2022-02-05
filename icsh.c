@@ -10,7 +10,6 @@ int decider(char inputArrayD[], char previousInput[], int previousCase, int leng
 
 	char* stringNum = (char*)malloc(995*sizeof(char));
 	char* charNum = (char*)malloc(995*sizeof(char));
-
 	FILE* previousFile;
 
 	if(!strncmp(inputArrayD, "echo", 4))
