@@ -2,23 +2,32 @@
 #include <stdlib.h>
 #include <string.h> 
 #include <unistd.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
-int decider(char inputArrayD[], char previousInput[], int previousCase, int lengthInput, int previousInputLength, int fileRead, char previousRunFile[])
+int decider(char inputArrayD[], char previousInput[], int previousCase, int lengthInput, int previousInputLength, int fileRead, char previousRunFile[], char systemCall[], int* exitStatus)
 {
 	int i;
 	int num = 0;
 
 	char* stringNum;
 	char* charNum;
-	char* systemCall = (char*)malloc(995*sizeof(char));
 
 	FILE* previousFile;
 
+	strcat(systemCall, "command -v ");
 	strcat(systemCall, inputArrayD);
-	strcat(systemCall, " 2>/dev/null");
+	strcat(systemCall, " > /dev/null");
 
 	if(!strncmp(inputArrayD, "echo", 4))
 	{
+		if(!strncmp(inputArrayD, "echo $?", 7))
+		{
+			printf("%d\n", *exitStatus);
+		}
+
+		*exitStatus = 0;
 		return 1;
 	}
 	else if(!strncmp(inputArrayD, "!!", 2))
@@ -28,6 +37,7 @@ int decider(char inputArrayD[], char previousInput[], int previousCase, int leng
 			printf("%s\n", previousInput);
 		}
 
+		*exitStatus = 0;
 		return previousCase;
 	}
 	else if(!strncmp(inputArrayD, "exit", 4))
@@ -96,19 +106,39 @@ int decider(char inputArrayD[], char previousInput[], int previousCase, int leng
 	}
 	else if(!system(systemCall))
 	{
-		free(systemCall);
+		char* sysCall = (char*)malloc(1000*sizeof(char));
+
+		int status = 0;
+
+		strcat(sysCall, inputArrayD);
+		strcat(sysCall, " 2>/dev/null");
+
+		pid_t PID = fork();
+
+		if(!PID)
+		{
+
+			system(sysCall);
+			free(sysCall);
+
+			exit(0);
+		}
+
+		waitpid(PID, &status, WUNTRACED);
+		
+		*exitStatus = 0;
+		free(sysCall);
+
 		return 0;
 	}
 	else if(lengthInput <= 0)
 	{
-		free(systemCall);
+		*exitStatus = 0;
 		return 0;
 	}
-	else
-	{
-		free(systemCall);
-		return -1;
-	}
+	
+	*exitStatus = 127;
+	return -1;
 
 }
 
@@ -123,23 +153,59 @@ void echo(char inputArray[], int lengthInput)
 	        printArray[i-5] = inputArray[i];
 	}
 
+	if(!strncmp(printArray, "$?", 2))
+	{
+		return;
+	}
+
 	printf("%s\n", printArray);
 
 	free(printArray);
 }
 
+void sigHandler(int signal)
+{
+	switch(signal)
+	{
+		case 2:
+			break;
+		case 20:
+			break;
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	char* previousCommand = (char*)malloc(1000*sizeof(char));
+	char systemCallCommand[1000];
 	char line;
 
 	int trueValue = 1;
 	int previousCommandCase = 0;
 	int previousLength = 0;
 	int countLine = 0;
+	int ExitStatus = 0;
 	int decide, i, j;
 
 	FILE* fileRead;
+
+	if(getpid() !=  0)
+	{
+		struct sigaction sigINT;
+		struct sigaction sigTSTP;
+
+		sigemptyset(&sigINT.sa_mask);
+		sigINT.sa_handler = sigHandler;
+		sigINT.sa_flags = 0;
+
+		sigaction(SIGINT, &sigINT, NULL);
+
+		sigemptyset(&sigTSTP.sa_mask);
+		sigTSTP.sa_handler = sigHandler;
+		sigTSTP.sa_flags = 0;
+
+		sigaction(SIGTSTP, &sigTSTP, NULL);
+	}
 
 	if(argc == 2)
 	{
@@ -177,6 +243,7 @@ int main(int argc, char *argv[])
 
 			scanf("%[^\n]%n", input, &lengthInput);
 			while(getchar() != '\n');
+
 		}
 		else if(argc == 2)
 		{
@@ -201,7 +268,16 @@ int main(int argc, char *argv[])
 			printf("This program only accept one file Maximum\n");
 		}
 
-		decide = decider(input, previousCommand, previousCommandCase, lengthInput, previousLength, argc, "previousRunFile.txt");
+		if(!strncmp(input, "^C", 2) || !strncmp(input, "^Z", 2))
+		{
+			continue;
+		}
+
+		memset(systemCallCommand, 0, 1000);
+
+		decide = decider(input, previousCommand, previousCommandCase, lengthInput, previousLength, argc, "previousRunFile.txt", systemCallCommand, &ExitStatus);
+		
+		memset(systemCallCommand, 0, 1000);
 
 		if(!strncmp(input, "!!", 2))
 		{
@@ -261,4 +337,3 @@ int main(int argc, char *argv[])
 	free(previousCommand);
 	return 0;
 }
-
